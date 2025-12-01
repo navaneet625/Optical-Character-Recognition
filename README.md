@@ -6,30 +6,6 @@ This project implements a modern Optical Character Recognition (OCR) system usin
 
 The model follows a standard CRNN-like pipeline but substitutes the recurrent layers with Mamba blocks for better scalability and speed.
 
-```mermaid
-graph TD
-    subgraph Input
-    I[Input Image] --> |Grayscale, 32x320| P[Preprocessing]
-    end
-
-    subgraph "Feature Extraction (CNN)"
-    P --> |[B, 1, 32, 320]| R[ResNet Backbone]
-    R --> |Conv Layers| F[Feature Map]
-    F --> |[B, 512, 1, 80]| S[Squeeze & Permute]
-    end
-
-    subgraph "Sequence Modeling (Mamba)"
-    S --> |[B, 80, 512]| M[Bi-Mamba Encoder]
-    M --> |Bidirectional SSM| C[Contextual Features]
-    end
-
-    subgraph "Prediction (CTC)"
-    C --> |[B, 80, 512]| L[Linear Classifier]
-    L --> |[B, 80, Vocab]| CT[CTC Loss / Greedy Decode]
-    CT --> O[Output Text]
-    end
-```
-
 ## 🚀 Features
 
 *   **Backbone**: ResNet-based feature extractor.
