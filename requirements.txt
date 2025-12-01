@@ -1,0 +1,15 @@
+torch
+torchvision
+opencv-python
+albumentations
+
+jiwer
+tqdm
+matplotlib
+numpy
+transformers
+pandas
+peft
+
+
+
