@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .cnn_backbone import ResNetFeatureExtractor
+from .cnn_backbone import ConvNeXtFeatureExtractor
 from .mamba_encoder import MambaEncoder
 
 class MambaOCR(nn.Module):
@@ -8,7 +8,7 @@ class MambaOCR(nn.Module):
         super().__init__()
         
         # 1. Vision Backbone
-        self.cnn = ResNetFeatureExtractor(output_channel=cnn_out, adapter_dim=32)
+        self.cnn = ConvNeXtFeatureExtractor(output_channel=cnn_out, lora_r=8)
         
         # 2. Sequence Encoder
         self.encoder = MambaEncoder(input_dim=cnn_out, n_layers=n_layers, use_lora=True)

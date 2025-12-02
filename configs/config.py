@@ -28,13 +28,13 @@ class Config:
         # 2. Model Configuration
         # --------------------------
         # ResNet Backbone
-        self.cnn_out = 512
+        self.cnn_out = 768
         self.adapter_dim = 32   # Bottleneck size for CNN Adapters
 
         # Mamba Encoder
         self.mamba_pretrained = "state-spaces/mamba-130m-hf"
         self.mamba_d_model = 768 # Fixed dim of the 130m model
-        self.mamba_layers = 4    # Truncate to 4 layers (Fast & Light)
+        self.mamba_layers = 6    # Truncate to 4 layers (Fast & Light)
         self.use_lora = True     # Enable Low-Rank Adaptation
 
         # --------------------------

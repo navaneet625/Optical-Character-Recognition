@@ -1,60 +1,93 @@
 import torch
 import cv2
 import numpy as np
+import os
 from models.ocr_model import MambaOCR
 from configs.config import Config
+from fast_ctc_decode import beam_search
 
-class OCRPredictor:
-    def __init__(self, checkpoint_path):
+class MambaPredictor:
+    def __init__(self, checkpoint_path="checkpoints/best_mamba_ocr.pth"):
         self.cfg = Config()
         self.device = torch.device(self.cfg.device)
-        self.model = MambaOCR(vocab_size=len(self.cfg.vocab)+1,
-                              cnn_out=self.cfg.cnn_out,
-                              n_layers=self.cfg.mamba_layers).to(self.device)
-        self.model.load_state_dict(torch.load(checkpoint_path))
+        
+        print(f"🍌 Loading NanoMamba OCR from {checkpoint_path}...")
+        
+        # 1. Initialize Architecture
+        self.model = MambaOCR(
+            vocab_size=len(self.cfg.vocab)+1,
+            cnn_out=self.cfg.cnn_out,
+            n_layers=self.cfg.mamba_layers
+        ).to(self.device)
+        
+        # 2. Load Weights (Robustly)
+        if not os.path.exists(checkpoint_path):
+            raise FileNotFoundError(f"Missing checkpoint: {checkpoint_path}")
+            
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        state_dict = checkpoint['model_state_dict'] if 'model_state_dict' in checkpoint else checkpoint
+        self.model.load_state_dict(state_dict, strict=False)
         self.model.eval()
         
-    def preprocess(self, img_path):
-        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-        # Resize logic same as dataset
+        # 3. Prep Beam Search
+        self.full_vocab = "-" + self.cfg.vocab
+        
+    def preprocess(self, image_path):
+        # Read
+        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            raise ValueError("Image not found or corrupt.")
+            
+        # Resize (Height 32, Width Dynamic)
         h, w = img.shape
         new_w = int(w * (self.cfg.img_height / h))
         img = cv2.resize(img, (new_w, self.cfg.img_height))
-        img = img.astype(np.float32) / 255.0
-        img = torch.from_numpy(img).unsqueeze(0).unsqueeze(0) # [1, 1, H, W]
-        return img.to(self.device)
-
-    def decode(self, preds):
-        # Greedy decoding
-        pred_indices = torch.argmax(preds, dim=2).detach().cpu().numpy() # [B, T]
-        decoded_texts = []
-        for sequence in pred_indices:
-            text = []
-            prev_char = -1
-            for char_idx in sequence:
-                if char_idx != self.cfg.blank_idx and char_idx != prev_char:
-                    text.append(self.cfg.vocab[char_idx - 1])
-                prev_char = char_idx
-            decoded_texts.append("".join(text))
-        return decoded_texts
-
-    def predict(self, img_path):
-        img_tensor = self.preprocess(img_path)
-        with torch.no_grad():
-            preds = self.model(img_tensor) # [B, T, C]
-            preds = preds.softmax(2)
         
-        text = self.decode(preds)
-        return text[0]
+        # Normalize
+        img = img.astype(np.float32) / 255.0
+        
+        # Tensor [1, 1, H, W]
+        tensor = torch.from_numpy(img).unsqueeze(0).unsqueeze(0)
+        return tensor.to(self.device)
 
-    def export_onnx(self, output_path="ocr.onnx"):
-        dummy_input = torch.randn(1, 1, 32, 320).to(self.device)
-        torch.onnx.export(self.model, dummy_input, output_path, 
-                          input_names=["input"], output_names=["output"],
-                          dynamic_axes={"input": {3: "width"}, "output": {1: "seq_len"}})
-        print("Model exported to ONNX")
+    def predict(self, image_path, use_beam=True):
+            tensor = self.preprocess(image_path)
+            
+            with torch.no_grad():
+                logits = self.model(tensor) # [1, Seq, Vocab]
+                probs = torch.softmax(logits, dim=2).cpu().numpy()[0]
+            
+            if use_beam:
+                # Beam Search returns (text, path_indices)
+                beam_result = beam_search(probs, self.full_vocab, beam_size=10)
+                
+                # --- FIX: Extract text from tuple ---
+                if isinstance(beam_result, tuple) or isinstance(beam_result, list):
+                    text = beam_result[0]
+                else:
+                    text = beam_result
+            else:
+                # Greedy Search (Simple argmax)
+                indices = np.argmax(probs, axis=1)
+                text = ""
+                for idx in indices:
+                    if idx != 0 and (not text or text[-1] != self.cfg.vocab[idx-1]):
+                        text += self.cfg.vocab[idx-1]
+                        
+            return text
 
+# --- USAGE EXAMPLE ---
 if __name__ == "__main__":
-    predictor = OCRPredictor("checkpoints/mamba_ocr_ep49.pth")
-    print(predictor.predict("data/test_image.png"))
-    # predictor.export_onnx()
+    # 1. Create Predictor
+    predictor = MambaPredictor()
+    
+    # 2. Pick a random test image from your generated set
+    test_img = "data/images/syn_000005.jpg" 
+    
+    # 3. Run
+    if os.path.exists(test_img):
+        result = predictor.predict(test_img)
+        print(f"\n🖼️ Image: {test_img}")
+        print(f"✨ Prediction: {result}")
+    else:
+        print("Please provide a valid image path.")
