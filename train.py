@@ -10,6 +10,9 @@ from configs.config import Config
 from data.dataset import OCRDataset, load_data
 from utils import CTCDecoder, AverageMeter, compute_metrics, save_checkpoint
 
+# -------------------------------------------------------------------
+# Helper: Decode Targets for Validation
+# -------------------------------------------------------------------
 def decode_targets(targets, target_lengths, vocab):
     text_batch = []
     current_idx = 0
@@ -24,7 +27,9 @@ def decode_targets(targets, target_lengths, vocab):
         current_idx += length
     return text_batch
 
-
+# -------------------------------------------------------------------
+# Helper: Custom Collate (Handles Variable Widths)
+# -------------------------------------------------------------------
 def collate_fn(batch):
     images, targets, target_lens = zip(*batch)
 
@@ -44,7 +49,9 @@ def collate_fn(batch):
 
     return images, targets, target_lens
 
-
+# -------------------------------------------------------------------
+# Main Training Logic
+# -------------------------------------------------------------------
 def train():
     cfg = Config()
 
@@ -58,7 +65,7 @@ def train():
     all_img_paths, all_labels = load_data(cfg)
 
     if not all_img_paths:
-        print("No images found! Check data_dir in configs/config.py")
+        print(" No images found! Check data_dir in configs/config.py")
         return
 
     full_dataset = OCRDataset(all_img_paths, all_labels, cfg, is_train=True)
@@ -70,12 +77,30 @@ def train():
 
     print(f"Train Size: {len(train_dataset)} | Val Size: {len(val_dataset)}")
 
-    # Loaders
+    # Loaders with SPEED OPTIMIZATIONS
     workers = cfg.num_workers if use_cuda else 0
-    train_loader = DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True,
-                              collate_fn=collate_fn, num_workers=workers)
-    val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=False,
-                            collate_fn=collate_fn, num_workers=workers)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.batch_size,
+        shuffle=True,
+        collate_fn=collate_fn,
+        num_workers=workers,
+
+        pin_memory=use_cuda,         # Fast transfer to GPU
+        persistent_workers=(workers > 0), # Keep CPU workers alive
+        prefetch_factor=2 if workers > 0 else None # Pre-load next batch
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg.batch_size,
+        shuffle=False,
+        collate_fn=collate_fn,
+        num_workers=workers,
+        pin_memory=use_cuda,
+        persistent_workers=(workers > 0)
+    )
 
     # --- 2. MODEL SETUP ---
     # vocab_size + 1 because we need a slot for the CTC Blank token (Index 0)
@@ -84,14 +109,14 @@ def train():
                      n_layers=cfg.mamba_layers,
                      adapter_dim=cfg.adapter_dim).to(device)
 
-    # --- 3. FREEZING STRATEGY (CRITICAL FIX) ---
+    # --- 3. FREEZING STRATEGY ---
     print(">>> Setting up freezing...")
 
     # A. Freeze entire CNN Base first
     for param in model.cnn.parameters():
         param.requires_grad = False
 
-    # B. Unfreeze adapters
+    # B. Unfreeze adapters (ConvNeXt specific)
     count_unfrozen = 0
     for name, param in model.cnn.named_parameters():
         if "lora" in name or "last_conv" in name:
@@ -131,7 +156,7 @@ def train():
 
     for epoch in range(cfg.epochs):
         model.train()
-        model.cnn.eval()
+        model.cnn.eval() # Keep CNN Batch Norm in Eval mode
 
         loss_meter = AverageMeter()
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{cfg.epochs}")
@@ -144,8 +169,13 @@ def train():
             optimizer.zero_grad()
 
             # --- Forward Pass with Mixed Precision Check ---
+            # Automatically handles CPU fallback
             device_type = 'cuda' if use_cuda else 'cpu'
-            with torch.amp.autocast(device_type=device_type, enabled=use_cuda):
+
+            # Note: cfg.mixed_precision flag is checked inside config
+            use_amp = use_cuda and cfg.mixed_precision
+
+            with torch.amp.autocast(device_type=device_type, enabled=use_amp):
                 preds = model(images) # [Batch, Time, Classes]
 
                 # CTC Loss expects: [Time, Batch, Classes] (Log Softmax)
@@ -159,21 +189,22 @@ def train():
                 continue
 
             # --- Backward Pass ---
-            if use_cuda:
+            if use_amp:
                 scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                scaler.unscale_(optimizer) # Unscale before clipping
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
                 scaler.step(optimizer)
                 scaler.update()
             else:
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
                 optimizer.step()
 
             scheduler.step()
             loss_meter.update(loss.item(), images.size(0))
             pbar.set_postfix(loss=f"{loss_meter.avg:.4f}")
 
+        # --- Validation ---
         print(f"Validating Epoch {epoch+1}...")
         val_cer, val_wer = validate(model, val_loader, decoder, device, cfg, use_cuda)
         print(f"Results - Loss: {loss_meter.avg:.4f} | Val CER: {val_cer:.4f}")
@@ -183,19 +214,19 @@ def train():
             save_checkpoint(model, optimizer, epoch, loss_meter.avg,
                             save_dir=cfg.checkpoint_dir, filename="best_mamba_ocr.pth")
 
-
 def validate(model, loader, decoder, device, cfg, use_cuda):
     model.eval()
     all_preds = []
     all_targets = []
 
     device_type = 'cuda' if use_cuda else 'cpu'
+    use_amp = use_cuda and cfg.mixed_precision
 
     with torch.no_grad():
         for images, targets, target_lengths in loader:
             images = images.to(device)
 
-            with torch.amp.autocast(device_type=device_type, enabled=use_cuda):
+            with torch.amp.autocast(device_type=device_type, enabled=use_amp):
                 preds = model(images)
 
             # Decode Predictions

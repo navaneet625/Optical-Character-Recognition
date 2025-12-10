@@ -23,11 +23,12 @@ class MambaEncoder(nn.Module):
         # -------------------------------
         # 3. Apply LoRA
         # -------------------------------
+        target_alpha = lora_rank*2
         if use_lora:
             print("Applying LoRA adapters to Mamba...")
             peft_config = LoraConfig(
                 r=lora_rank,
-                lora_alpha=16,
+                lora_alpha= target_alpha,
                 target_modules=["in_proj", "x_proj", "dt_proj"],
                 lora_dropout=0.05,
                 bias="none",
