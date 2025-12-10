@@ -22,7 +22,6 @@ class CTCDecoder:
         """
         # Ensure shape is [Batch, Seq_Len, Vocab]
         if log_probs.shape[0] != log_probs.shape[1] and log_probs.shape[2] == len(self.vocab) + 1:
-             # Heuristic check if batch dim is first, if not permute might be needed based on model output
              pass 
         
         # Get max probability indices
@@ -113,8 +112,7 @@ def visualize_prediction(image_tensor, prediction, target=None):
     # Convert tensor back to numpy image
     # image_tensor: [1, H, W]
     img = image_tensor.squeeze().cpu().numpy()
-    
-    # Denormalize if you used mean/std, here we assume simple 0-1 scaling
+
     img = (img * 255).astype(np.uint8)
     
     plt.figure(figsize=(10, 2))

@@ -5,7 +5,7 @@ from peft import get_peft_model, LoraConfig
 
 
 class MambaEncoder(nn.Module):
-    def __init__(self, input_dim, n_layers=4, dropout=0.1, use_lora=True):
+    def __init__(self, input_dim, n_layers=4, dropout=0.1, use_lora=True, lora_rank=32):
         super().__init__()
 
         # 1. Load pretrained Mamba
@@ -26,7 +26,7 @@ class MambaEncoder(nn.Module):
         if use_lora:
             print("Applying LoRA adapters to Mamba...")
             peft_config = LoraConfig(
-                r=8,
+                r=lora_rank,
                 lora_alpha=16,
                 target_modules=["in_proj", "x_proj", "dt_proj"],
                 lora_dropout=0.05,

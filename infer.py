@@ -11,7 +11,7 @@ class MambaPredictor:
         self.cfg = Config()
         self.device = torch.device(self.cfg.device)
         
-        print(f"🍌 Loading NanoMamba OCR from {checkpoint_path}...")
+        print(f"Loading NanoMamba OCR from {checkpoint_path}...")
         
         # 1. Initialize Architecture
         self.model = MambaOCR(
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # 3. Run
     if os.path.exists(test_img):
         result = predictor.predict(test_img)
-        print(f"\n🖼️ Image: {test_img}")
-        print(f"✨ Prediction: {result}")
+        print(f"\n Image: {test_img}")
+        print(f"Prediction: {result}")
     else:
         print("Please provide a valid image path.")

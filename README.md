@@ -16,13 +16,13 @@ This project implements a state-of-the-art Optical Character Recognition (OCR) s
     *   A **CTC (Connectionist Temporal Classification)** head maps the sequence to character probabilities.
     *   The final output is decoded into text, handling repeated characters and blanks automatically.
 
-## 🚀 Features
+## Features
 
-*   **⚡ Efficient Architecture**: Replaces heavy RNNs/LSTMs with **Mamba**, offering linear scaling with sequence length.
-*   **🧠 LoRA Fine-Tuning**: Implements custom **LoRAConv2d** layers. Only ~1-5% of parameters are trainable, drastically reducing memory usage and preventing catastrophic forgetting.
-*   **👀 Robust Vision**: Uses **ConvNeXt-Tiny** (ImageNet pre-trained) as a powerful feature extractor.
-*   **🔄 Mixed Precision**: Full support for FP16 (AMP) training.
-*   **🛠️ Production Ready**: Includes inference scripts, checkpoint management, and modular configuration.
+*   **Efficient Architecture**: Replaces heavy RNNs/LSTMs with **Mamba**, offering linear scaling with sequence length.
+*   **LoRA Fine-Tuning**: Implements custom **LoRAConv2d** layers. Only ~1-5% of parameters are trainable, drastically reducing memory usage and preventing catastrophic forgetting.
+*   **Robust Vision**: Uses **ConvNeXt-Tiny** (ImageNet pre-trained) as a powerful feature extractor.
+*   **Mixed Precision**: Full support for FP16 (AMP) training.
+*   **Production Ready**: Includes inference scripts, checkpoint management, and modular configuration.
 
 ## 📂 Project Structure
 
@@ -57,13 +57,12 @@ ocr_project/
     ```
     *Note: `mamba-ssm` requires a GPU with CUDA support.*
 
-## 🏃 Usage
 
 ### 1. Configuration
-Edit `configs/config.py` to set your paths and parameters:
+Edit `configs/config.py`  set paths and parameters:
 ```python
 self.data_dir = "path/to/your/data"
-self.use_lora = True  # Enable/Disable LoRA
+self.use_lora = True 
 self.batch_size = 32
 ```
 
@@ -80,7 +79,7 @@ python infer.py
 ```
 *(Ensure you point to a valid checkpoint in `infer.py`)*
 
-## 📊 Performance & LoRA
+## Performance & LoRA
 By using LoRA, we achieve comparable accuracy to full fine-tuning but with significantly faster convergence and lower VRAM requirements.
 *   **Frozen Params**: ConvNeXt Base, Mamba Base.
 *   **Trainable Params**: LoRA Adapters (Rank 8), Final Classifier.
