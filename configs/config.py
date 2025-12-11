@@ -3,55 +3,43 @@ import os
 
 class Config:
     def __init__(self):
+        self.data_dir = "/kaggle/input/ocr-synthetic-dataset"
+        self.images_dir = os.path.join(self.data_dir, "images")
+        self.labels_file = os.path.join(self.data_dir, "labels.txt")
+        self.checkpoint_dir = "checkpoints"
+        self.best_model_path = os.path.join(self.checkpoint_dir, "best_mamba_ocr.pth")
+        
+        # Create output directories if local
+        if not self.data_dir.startswith("/kaggle"):
+             os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        self.vocab = "0123456789abcdefghijklmnopqrstuvwxyz" 
-  
+        # Digits + Lowercase + Uppercase
+        self.vocab = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.blank_idx = 0 
         
-        # Image Dimensions
         self.img_height = 32
-        self.img_width = 320 
+        self.img_width = 320
+        # ImageNet Statistics
+        self.mean = [0.485, 0.456, 0.406]
+        self.std = [0.229, 0.224, 0.225]
 
-        # Paths (Verify these exist!)
-        self.data_dir = "data/" 
-        self.images_dir = os.path.join(self.data_dir, "images")
-        self.labels_file = os.path.join(self.data_dir, "labels", "labels.csv")
-        self.checkpoint_dir = "checkpoints/"
-        os.makedirs(self.checkpoint_dir, exist_ok=True) 
-
-        # --------------------------
-        # 2. Model Configuration
-        # --------------------------
-        # ConvNeXt Backbone
-        self.cnn_out = 768       # Must match Mamba's hidden size for efficiency
-        self.adapter_dim = 32    # Size of LoRA/Adapter bottleneck
-
+        # ResNet Backbone
+        self.cnn_out = 512      # ResNet34 output
+        self.adapter_dim = 64   
+        
         # Mamba Encoder
         self.mamba_pretrained = "state-spaces/mamba-130m-hf"
-        self.mamba_d_model = 768 # The 130m model is fixed at 768 dim
-        self.mamba_layers = 4    
-        self.use_lora = True     
+        self.mamba_layers = 4
+        self.use_lora = True
+        self.lora_rank = 64   
+        self.mamba_dropout = 0.1
 
-        # --------------------------
-        # 3. Training Configuration
-        # --------------------------
-        # Batch Size
-        # CRITICAL FIX: Changed 1 -> 32
-        # Batch size 1 makes training unstable (noisy gradients) and extremely slow.
-        # On a Colab T4 GPU, you can easily handle 32 or 64.
-        self.batch_size = 32 
-        
-        # Learning Rate Strategy
-        self.learning_rate = 5e-4  # Slightly lowered for stability with Mamba
-        
-        # Duration
-        self.epochs = 1
-        
-        # Optimization
+        self.batch_size = 16
+        self.epochs = 5
+        self.learning_rate = 1e-4
         self.weight_decay = 1e-2
-        self.gradient_clip_val = 1.0 
-        
-        # System
+        self.gradient_clip_val = 1.0
+        self.num_workers = 4
+  
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.num_workers = 2   
-        self.mixed_precision = True
+        self.mixed_precision = True 

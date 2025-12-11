@@ -1,39 +1,49 @@
 import torch
 import torch.nn as nn
-from .cnn_backbone import ConvNeXtFeatureExtractor
+from .cnn_backbone import ResNetFeatureExtractor
 from .mamba_encoder import MambaEncoder
 
 class MambaOCR(nn.Module):
-    def __init__(self, vocab_size, cnn_out=768, n_layers=4, adapter_dim=8):
+    def __init__(self, vocab_size, cnn_out=512, n_layers=4, adapter_dim=32):
         super().__init__()
-        
-        # Vision Backbone
-        self.cnn = ConvNeXtFeatureExtractor(output_channel=cnn_out, lora_r=adapter_dim)
-        
-        # Sequence Encoder
-        self.encoder = MambaEncoder(input_dim=cnn_out, n_layers=n_layers, use_lora=True, lora_rank=adapter_dim)
-        
-        # Classifier
-        mamba_dim = self.encoder.config.hidden_size
-        self.classifier = nn.Linear(mamba_dim, vocab_size)
+
+        self.cnn = ResNetFeatureExtractor(
+            output_channel=cnn_out,
+            adapter_dim=adapter_dim
+        )
+
+        self.norm = nn.LayerNorm(cnn_out)
+
+        self.encoder = MambaEncoder(
+            input_dim=cnn_out,
+            n_layers=n_layers,
+            use_lora=True,
+            lora_rank=adapter_dim
+        )
+
+        hidden_dim = self.encoder.config.hidden_size
+        self.classifier = nn.Linear(hidden_dim, vocab_size)
 
     def forward(self, x):
-        # 1. Extract Features [B, 768, H, W]
+        # CNN: [B, 3, H, W] → [B, C, H', W']
         features = self.cnn(x)
-        
-        # 2. Force Height to 1 (Fixes the crash if H=2)
-        # [B, 768, H, W] -> [B, 768, 1, W]
+
+        # Adaptive pool height → 1 (fixes mismatch for odd heights)
         features = nn.functional.adaptive_avg_pool2d(features, (1, None))
-        
-        # 3. Prepare for Mamba
-        # Squeeze H: [B, 768, 1, W] -> [B, 768, W]
+
+        # Remove height: [B, C, 1, W] → [B, C, W]
         features = features.squeeze(2)
-        
-        # Permute for Sequence: [B, 768, W] -> [B, W, 768]
+
+        # Permute for sequence: [B, C, W] → [B, W, C]
         features = features.permute(0, 2, 1)
 
-        # 4. Encoder & Classifier
-        enc_out = self.encoder(features)
-        logits = self.classifier(enc_out)
+        # LayerNorm stabilization
+        features = self.norm(features)
+
+        # Mamba Encoder
+        enc = self.encoder(features)
+
+        # Final classifier: [B, W, vocab_size]
+        logits = self.classifier(enc)
 
         return logits
