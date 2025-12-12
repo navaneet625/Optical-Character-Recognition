@@ -20,7 +20,6 @@ def get_fonts():
     for path in search_paths:
         fonts.extend(glob.glob(path, recursive=True))
     
-    # Filter out weird fonts (symbol fonts etc if possible, but hard to know)
     if not fonts:
         print("Warning: No TTF fonts found. Using default PIL font (very basic).")
     else:

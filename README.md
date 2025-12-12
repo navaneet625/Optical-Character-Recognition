@@ -1,14 +1,18 @@
 # MambaOCR: Efficient Scene Text Recognition with LoRA
 
-This project implements a state-of-the-art Optical Character Recognition (OCR) system combining **ConvNeXt**, **Mamba (State Space Models)**, and **CTC**. It features **Low-Rank Adaptation (LoRA)** for efficient fine-tuning of the vision backbone, allowing for high performance with minimal trainable parameters.
+This project implements a state-of-the-art Optical Character Recognition (OCR) system combining **ResNet34**, **Mamba (State Space Models)**, and **CTC**. It features **Adapter-based Fine-Tuning** for efficient training of the vision backbone, allowing for high performance with controlled parameter updates.
 
 
 ### Key Components Flow:
 1.  **Image Preprocessing**: Images are resized to a fixed height (32px) while maintaining aspect ratio, then padded to a max width.
 2.  **Feature Extraction (Vision)**:
-    *   **Backbone**: A pre-trained **ConvNeXt-Tiny** extracts visual features.
-    *   **LoRA Injection**: Instead of training the full backbone, we inject **Low-Rank Adapters (LoRA)** into the convolutional layers. The base weights are **frozen**, and only the small rank-8 adapters are trained.
-    *   **Stride Patching**: Standard CNNs downsample both height and width. We patch the strides to downsample Height (to 1) but **preserve Width**, ensuring we have a long enough sequence for text recognition.
+    *   **Backbone**: A pre-trained **ResNet34** extracts visual features.
+    *   **Adapter Injection**: **Bottleneck Adapters** are injected into the convolutional layers.
+    *   **Freeze Strategy**: The bulk of the ResNet backbone is **frozen**. Training is restricted to:
+        *   The inserted Adapters
+        *   The final convolutional block (`layer4`)
+        *   The last projection layer
+    *   **Stride Patching**: Standard CNNs downsample both height and width. Strides are patched to downsample Height (to 1) but **preserve Width**, ensuring a long enough sequence for text recognition.
 3.  **Sequence Modeling (Language)**:
     *   The 2D feature map `[B, C, 1, W]` is converted to a 1D sequence `[B, W, C]`.
     *   **Mamba Blocks** process this sequence to model long-range dependencies between characters.
@@ -19,8 +23,8 @@ This project implements a state-of-the-art Optical Character Recognition (OCR) s
 ## Features
 
 *   **Efficient Architecture**: Replaces heavy RNNs/LSTMs with **Mamba**, offering linear scaling with sequence length.
-*   **LoRA Fine-Tuning**: Implements custom **LoRAConv2d** layers. Only ~1-5% of parameters are trainable, drastically reducing memory usage and preventing catastrophic forgetting.
-*   **Robust Vision**: Uses **ConvNeXt-Tiny** (ImageNet pre-trained) as a powerful feature extractor.
+*   **Smart Fine-Tuning**: Uses **Adapters** and partial unfreezing (Layer4) to adapt the ImageNet-trained backbone to OCR tasks without destroying pre-trained knowledge.
+*   **Robust Vision**: Uses **ResNet34** (ImageNet pre-trained) as a powerful feature extractor.
 *   **Mixed Precision**: Full support for FP16 (AMP) training.
 *   **Production Ready**: Includes inference scripts, checkpoint management, and modular configuration.
 
@@ -34,7 +38,7 @@ ocr_project/
 │   ├── dataset.py      # Custom Dataset & DataLoader logic
 │   └── ...
 ├── models/
-│   ├── cnn_backbone.py # ConvNeXt with custom LoRAConv2d implementation
+│   ├── cnn_backbone.py # ResNet34 with Adapter implementation
 │   ├── mamba_encoder.py# Mamba block definitions
 │   └── ocr_model.py    # Main MambaOCR assembly
 ├── train.py            # Training loop with freezing strategy & AMP
@@ -79,7 +83,12 @@ python infer.py
 ```
 *(Ensure you point to a valid checkpoint in `infer.py`)*
 
-## Performance & LoRA
-By using LoRA, we achieve comparable accuracy to full fine-tuning but with significantly faster convergence and lower VRAM requirements.
-*   **Frozen Params**: ConvNeXt Base, Mamba Base.
-*   **Trainable Params**: LoRA Adapters (Rank 8), Final Classifier.
+## Data Generation
+This project includes a powerful synthetic data generator `create_dummy_data.py` useful for training and sanity checking.
+*   **Features**: Random rotation, Gaussian blur, noise injection, and variable fonts/backgrounds.
+*   **Usage**: Great for verifying code functionality and learning basic text patterns. For production-grade accuracy, mixing in real-world datasets (MJSynth, etc.) is recommended.
+
+## Performance & Training details
+*   **Frozen Params**: Most of ResNet34 Base.
+*   **Trainable Params**: ResNet Adapters, ResNet Layer4, Mamba (with LoRA), Final Classifier.
+*   **Loss Tracking**: The training loop tracks partial loss and Validation CER. Expect CER to drop to ~0.07 on synthetic data.

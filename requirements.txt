@@ -1,15 +1,23 @@
-torch
-torchvision
-opencv-python
-albumentations
 
+# !pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+# !pip uninstall -y mamba-ssm causal-conv1d
+# !pip install causal-conv1d mamba-ssm --no-build-isolation
+# !pip install fast-ctc-decode
+# !pip install peft ninja packaging jiwer
+
+
+torch==2.4.0
+torchvision==0.19.0
+torchaudio==2.4.0
+opencv-python==4.11.0.79
+albumentations==1.4.0
 jiwer
-tqdm
-matplotlib
-numpy
-transformers
-pandas
-peft
+tqdm==4.66.1
+matplotlib==3.7.2
+numpy==1.24.4
+transformers==4.36.2
+pandas==2.1.4
+peft==0.5.0
 
 
 

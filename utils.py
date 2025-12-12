@@ -1,3 +1,4 @@
+%%writefile /kaggle/working/ocr_project/utils.py
 import os
 import torch
 import torch.nn as nn
@@ -109,7 +110,6 @@ class CTCDecoder:
              raise ValueError("CTCDecoder expects [B, T, V] logits")
 
         # argmax across vocab dim -> [B, T]
-
         # argmax across vocab dim -> [B, T]
         idxs = torch.argmax(x, dim=2)
 
@@ -150,7 +150,7 @@ class CTCDecoder:
         # If input is raw logits, apply softmax? Standard CTC loss takes log_probs.
         # We assume input is logits, so we apply log_softmax conversion if values > 0 (heuristic)
         # But train.py sets outputs raw. We'll standardly apply log_softmax on features.
-        
+
         batch_log_probs = torch.nn.functional.log_softmax(logits, dim=2).detach().cpu().numpy()
         decoded_batch = []
         
@@ -166,14 +166,9 @@ class CTCDecoder:
             for t in range(T):
                 next_beam = {}
                 
-                # Pruning: Only consider top K candidates at regular steps to speed up?
-                # Simple version: Expand all.
-                
+                # Pruning: Only consider top K candidates at regular steps to speed up?                
                 for score, seq, last_char in beam:
-                    # Try extending with every possible character
-                    # Optimization: Only take top K probs at this step
-                    # To keep it fast in python
-                    
+                    # Optimization: Only take top K probs at this step                    
                     # Sort current step probs
                     step_probs = log_probs[t]
                     top_k_indices = np.argsort(step_probs)[-beam_width:] 
