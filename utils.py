@@ -1,4 +1,4 @@
-%%writefile /kaggle/working/ocr_project/utils.py
+
 import os
 import torch
 import torch.nn as nn

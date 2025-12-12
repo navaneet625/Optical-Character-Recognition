@@ -91,4 +91,4 @@ This project includes a powerful synthetic data generator `create_dummy_data.py`
 ## Performance & Training details
 *   **Frozen Params**: Most of ResNet34 Base.
 *   **Trainable Params**: ResNet Adapters, ResNet Layer4, Mamba (with LoRA), Final Classifier.
-*   **Loss Tracking**: The training loop tracks partial loss and Validation CER. Expect CER to drop to ~0.07 on synthetic data.
+*   **Loss Tracking**: The training loop tracks partial loss and Validation CER. Expect CER to drop to ~0.03 (with beam search) on synthetic data.

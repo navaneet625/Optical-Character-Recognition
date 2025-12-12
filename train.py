@@ -90,7 +90,8 @@ def train(cfg=None):
     model = MambaOCR(vocab_size=len(cfg.vocab)+1, 
                      cnn_out=cfg.cnn_out, 
                      n_layers=cfg.mamba_layers, 
-                     adapter_dim=cfg.adapter_dim).to(cfg.device)
+                     adapter_dim=cfg.adapter_dim,
+                     lora_rank=cfg.lora_rank).to(cfg.device)
 
     # 3. Freeze & Optimize
     if torch.cuda.device_count() > 1:

@@ -1,4 +1,3 @@
-%%writefile /kaggle/working/ocr_project/configs/config.py
 import torch
 import os
 
@@ -29,22 +28,22 @@ class Config:
 
 
         # ResNet Backbone
-        self.cnn_out = 512  
-        self.adapter_dim = 64  
+        self.adapter_dim = 32
+        self.cnn_out = 512
         
         # Mamba Encoder
         self.mamba_pretrained = "state-spaces/mamba-130m-hf"
-        self.mamba_layers = 6
+        self.mamba_layers = 4
         self.use_lora = True
         self.lora_rank = 32
         self.mamba_dropout = 0.1
 
         self.batch_size = 256
-        self.epochs = 50
+        self.epochs = 5
         self.learning_rate = 3e-4
         self.weight_decay = 1e-2
         self.gradient_clip_val = 1.0
-        self.num_workers = 4
+        self.num_workers = 0
         
         # System
         self.device = "cuda" if torch.cuda.is_available() else "cpu"

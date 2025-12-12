@@ -4,7 +4,7 @@ from .cnn_backbone import ResNetFeatureExtractor
 from .mamba_encoder import MambaEncoder
 
 class MambaOCR(nn.Module):
-    def __init__(self, vocab_size, cnn_out=512, n_layers=4, adapter_dim=32):
+    def __init__(self, vocab_size, cnn_out=512, n_layers=4, adapter_dim=32, lora_rank=None):
         super().__init__()
 
         self.cnn = ResNetFeatureExtractor(
@@ -14,11 +14,14 @@ class MambaOCR(nn.Module):
 
         self.norm = nn.LayerNorm(cnn_out)
 
+        # Use explicit lora_rank if provided, else default to adapter_dim
+        real_lora_rank = lora_rank if lora_rank is not None else adapter_dim
+
         self.encoder = MambaEncoder(
             input_dim=cnn_out,
             n_layers=n_layers,
             use_lora=True,
-            lora_rank=adapter_dim
+            lora_rank=real_lora_rank
         )
 
         hidden_dim = self.encoder.config.hidden_size
