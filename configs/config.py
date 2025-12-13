@@ -28,14 +28,14 @@ class Config:
 
 
         # ResNet Backbone
-        self.adapter_dim = 32
+        self.adapter_dim = 64
         self.cnn_out = 512
         
         # Mamba Encoder
         self.mamba_pretrained = "state-spaces/mamba-130m-hf"
         self.mamba_layers = 4
         self.use_lora = True
-        self.lora_rank = 32
+        self.lora_rank = 64
         self.mamba_dropout = 0.1
 
         self.batch_size = 256
