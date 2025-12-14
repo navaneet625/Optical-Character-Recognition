@@ -84,11 +84,10 @@ python infer.py
 *(Ensure you point to a valid checkpoint in `infer.py`)*
 
 ## Data Generation
-This project includes a powerful synthetic data generator `create_dummy_data.py` useful for training and sanity checking.
+This project includes a powerful synthetic data generator `gen_data.py` useful for training and sanity checking.
 *   **Features**: Random rotation, Gaussian blur, noise injection, and variable fonts/backgrounds.
-*   **Usage**: Great for verifying code functionality and learning basic text patterns. For production-grade accuracy, mixing in real-world datasets (MJSynth, etc.) is recommended.
 
 ## Performance & Training details
 *   **Frozen Params**: Most of ResNet34 Base.
 *   **Trainable Params**: ResNet Adapters, ResNet Layer4, Mamba (with LoRA), Final Classifier.
-*   **Loss Tracking**: The training loop tracks partial loss and Validation CER. Expect CER to drop to ~0.03 (with beam search) on synthetic data.
+*   **Loss Tracking**: The training loop tracks partial loss and Validation CER.

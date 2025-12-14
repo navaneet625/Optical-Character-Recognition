@@ -7,9 +7,8 @@ import os
 
 from configs.config import Config
 from models.ocr_model import MambaOCR
-from data.dataset import OCRDataset, load_data
+from data.dataset import OCRDataset 
 from utils import CTCDecoder, AverageMeter, save_checkpoint, decode_targets, apply_freeze_strategy, compute_metrics
-
 
 # -------------------------------------------------------------------
 # Collate Function
@@ -29,7 +28,7 @@ def collate_fn(batch):
 
     images = torch.stack(padded_imgs, dim=0)
     
-    # Flatten targets for CTC Loss usage if needed, but here we keep 1D tensor of lengths
+    # Flatten targets for CTC Loss usage
     target_lens = torch.tensor([len(t) for t in targets], dtype=torch.long)
     targets = torch.cat(targets) if len(targets) > 0 else torch.tensor([], dtype=torch.long)
 
@@ -71,29 +70,33 @@ def train(cfg=None):
     if cfg is None:
         cfg = Config()
     
-    print(f"--- Starting Training on {cfg.device} ---")
+    print(f"--- Starting FRESH Training on {cfg.device} ---")
     
-    # 1. Data
-    paths, labels = load_data(cfg)
-    full_ds = OCRDataset(paths, labels, cfg, is_train=True)
+    # 1. Data Loading
+    # The dataset class handles reading CSVs based on Config paths
+    full_ds = OCRDataset(cfg, is_train=True)
     
+    # 90/10 Train-Val Split
     train_size = int(0.9 * len(full_ds))
     val_size = len(full_ds) - train_size
     train_ds, val_ds = random_split(full_ds, [train_size, val_size])
+    
+    print(f"Dataset Split: {len(train_ds)} Train, {len(val_ds)} Validation")
     
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, 
                               collate_fn=collate_fn, num_workers=cfg.num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False, 
                             collate_fn=collate_fn, num_workers=cfg.num_workers, pin_memory=True)
 
-    # 2. Model
+    # 2. Model Initialization
+    # This automatically downloads ResNet (ImageNet) and Mamba (HF) base weights
     model = MambaOCR(vocab_size=len(cfg.vocab)+1, 
                      cnn_out=cfg.cnn_out, 
                      n_layers=cfg.mamba_layers, 
                      adapter_dim=cfg.adapter_dim,
                      lora_rank=cfg.lora_rank).to(cfg.device)
 
-    # 3. Freeze & Optimize
+    # 3. Freeze Strategy (LoRA/Adapter Training)
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
         
@@ -110,10 +113,10 @@ def train(cfg=None):
     criterion = nn.CTCLoss(blank=cfg.blank_idx, zero_infinity=True)
     decoder = CTCDecoder(cfg.vocab)
     
-    # FP16 Scaler
-    scaler = torch.cuda.amp.GradScaler(enabled=cfg.mixed_precision)
+    # FP16 Scaler (Faster Training)
+    scaler = torch.amp.GradScaler(enabled=cfg.mixed_precision)
 
-    # 4. Loop
+    # 4. Training Loop
     best_cer = float("inf")
     
     for epoch in range(cfg.epochs):
@@ -129,7 +132,7 @@ def train(cfg=None):
             optimizer.zero_grad()
             
             # Mixed Precision Context
-            with torch.cuda.amp.autocast(enabled=cfg.mixed_precision):
+            with torch.amp.autocast('cuda', enabled=cfg.mixed_precision):
                 # Forward: [B, T, V]
                 outputs = model(images)
                 log_probs = outputs.log_softmax(2).permute(1, 0, 2) # [T, B, V]
@@ -139,7 +142,7 @@ def train(cfg=None):
                 
                 loss = criterion(log_probs, targets, input_lens, target_lens)
 
-            # Scaled Backward
+            # Backward
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.gradient_clip_val)
@@ -159,9 +162,9 @@ def train(cfg=None):
         if val_cer < best_cer:
             best_cer = val_cer
             model_to_save = model.module if isinstance(model, nn.DataParallel) else model
+            # Saves to the path defined in Config (best_mamba_ocr_uppercase.pth)
             save_checkpoint(model_to_save, optimizer, epoch, loss_meter.avg, 
                             save_dir=cfg.checkpoint_dir, filename="best_mamba_ocr.pth")
-
 
 if __name__ == "__main__":
     train()

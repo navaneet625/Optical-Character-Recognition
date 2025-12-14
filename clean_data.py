@@ -9,6 +9,7 @@ def clean_project():
     paths_to_remove = [
         "data/images",
         "data/labels",
+        "data/labels.txt",
         "__pycache__",
         "models/__pycache__",
         "configs/__pycache__",
