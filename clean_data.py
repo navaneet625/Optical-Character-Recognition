@@ -14,7 +14,6 @@ def clean_project():
         "models/__pycache__",
         "configs/__pycache__",
         "data/__pycache__",
-        "checkpoints",
         "error_analysis.png",
         "ocr.onnx"
     ]

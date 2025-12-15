@@ -86,6 +86,83 @@ class CTCDecoder:
             decoded.append("".join(chars))
         return decoded
 
+    def decode_beam_search(self, logits: torch.Tensor, beam_width: int = 10):
+        """
+        Pure Python Beam Search Decoding for CTC.
+        Args:
+           logits: Tensor [B, T, V] (raw logits)
+           beam_width: int
+        Returns:
+           List[str]
+        """
+        # Apply log_softmax to get log probabilities
+        batch_log_probs = torch.nn.functional.log_softmax(logits, dim=2).detach().cpu().numpy()
+        decoded_batch = []
+        
+        for log_probs in batch_log_probs:
+            # log_probs: [T, V]
+            T, V = log_probs.shape
+            
+            # Beam: List of tuples (score, text_indices, last_char_idx)
+            # score = log probability (0.0 for log(1))
+            beam = [(0.0, [], self.blank_idx)] 
+            
+            for t in range(T):
+                next_beam = {}
+                
+                # Sort beam by score to prioritize high prob paths
+                # Optimization: Only expand the current top beam_width candidates
+                beam = sorted(beam, key=lambda x: x[0], reverse=True)[:beam_width]
+
+                for score, seq, last_char in beam:
+                    # Optimization: Only take top K probs at this specific time step t                    
+                    step_probs = log_probs[t]
+                    # Get indices of top K probabilities
+                    top_k_indices = np.argsort(step_probs)[-beam_width:] 
+                    
+                    for char_idx in top_k_indices:
+                        char_prob = step_probs[char_idx]
+                        new_score = score + char_prob
+                        
+                        if char_idx == self.blank_idx:
+                            # Blank: keep sequence same, update last char to blank
+                            new_last = self.blank_idx
+                            new_seq = tuple(seq) # Tuple for dict key
+                        else:
+                            if char_idx == last_char:
+                                # Repeated char (AA -> A)
+                                new_last = char_idx
+                                new_seq = tuple(seq)
+                            else:
+                                # New char
+                                new_last = char_idx
+                                new_seq = tuple(seq + [char_idx])
+                                
+                        # Update best score for this (seq, last_char) state
+                        key = (new_seq, new_last)
+                        if key not in next_beam or new_score > next_beam[key]:
+                            next_beam[key] = new_score
+                            
+                # Sort by score and keep top beam_width for next iteration
+                sorted_beam = sorted(next_beam.items(), key=lambda x: x[1], reverse=True)[:beam_width]
+                
+                # Reformat back to list for next iteration
+                beam = []
+                for (seq_tuple, last_char), sc in sorted_beam:
+                    beam.append((sc, list(seq_tuple), last_char))
+                    
+            # Best path at end of time T
+            best_seq = beam[0][1]
+            
+            # Decode indices to string
+            chars = []
+            for idx in best_seq:
+                if 0 <= idx - 1 < len(self.vocab):
+                     chars.append(self.vocab[idx - 1])
+            decoded_batch.append("".join(chars))
+            
+        return decoded_batch
+
 class AverageMeter:
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -117,4 +194,4 @@ def save_checkpoint(model, optimizer, epoch, loss, save_dir, filename):
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
     }, path)
-    print(f" Checkpoint saved: {path}")
+    print(f"Checkpoint saved: {path}")
