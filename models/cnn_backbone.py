@@ -59,7 +59,7 @@ class ResNetFeatureExtractor(nn.Module):
     def __init__(self, output_channel=512, adapter_dim=32):
         super().__init__()
 
-        print(f"Loading ResNet-34 with Adapters (dim={adapter_dim})...")
+        print(f"Loading ResNet-34 adapter_dim={adapter_dim}...")
 
         # Load pretrained weights
         weights = ResNet34_Weights.IMAGENET1K_V1

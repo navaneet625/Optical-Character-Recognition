@@ -10,10 +10,8 @@ from .augmentations import get_train_transforms
 
 def load_data(cfg):
     """
-    Blazing Fast Data Loader (Vectorized).
-    1. Loads CSV/TXT instantly.
-    2. Cleans paths automatically.
-    3. Returns paths, labels, AND weights.
+    Loads data from CSV or TXT. 
+    Returns paths, labels, and weights.
     """
     image_paths = []
     labels = []
@@ -34,26 +32,24 @@ def load_data(cfg):
     else:
         raise FileNotFoundError(" No valid labels file found in Config paths.")
 
-    # 2. Fast Pre-processing
-    # Drop NaNs
+    # Pre-processing: Drop NaNs
     df = df.dropna(subset=['label'])
     df = df[df['label'].astype(str).str.lower() != 'nan']
     
-    # Handle Weights (Default to 1.0 if missing)
+    # Handle Weights (Default to 1.0)
     if 'weight' not in df.columns:
         df['weight'] = 1.0
     
-    print(f"   Processing {len(df)} paths...")
+    print(f"Processing {len(df)} paths...")
 
-    # 3. Vectorized Path Construction (The Speed Secret)
+    # Path Construction
     base_dir = cfg.images_dir if hasattr(cfg, 'images_dir') else os.path.join(cfg.data_dir, "images")
     
     filenames = df["filename"].astype(str).values
     raw_labels = df["label"].astype(str).values
     raw_weights = df["weight"].astype(float).values
     
-    # Fast List Comprehension for Path Cleaning
-    # Removes 'images/', 'data/images/', etc.
+    # Clean paths
     clean_filenames = [
         f[7:] if f.startswith("images/") else 
         f[12:] if f.startswith("data/images/") else 
@@ -66,12 +62,12 @@ def load_data(cfg):
     labels = list(raw_labels)
     weights = list(raw_weights)
 
-    # 4. Sanity Check (Check ONLY the first file to fail fast)
+    # Sanity Check
     if len(image_paths) > 0 and not os.path.exists(image_paths[0]):
-        print(f"  WARNING: First file not found at: {image_paths[0]}")
-        print(" Check your 'config.py' paths!")
+        print(f"WARNING: First file not found at: {image_paths[0]}")
+        print("Check your 'config.py' paths!")
     
-    print(f" Loaded {len(image_paths)} samples instantly.")
+    print(f"Loaded {len(image_paths)} samples.")
     return image_paths, labels, weights
 
 class OCRDataset(Dataset):
@@ -92,7 +88,7 @@ class OCRDataset(Dataset):
         self.use_cache = len(self.image_paths) < 20000
         
         if self.use_cache:
-            print(f"⚡ Caching {len(self.image_paths)} images in RAM...")
+            print(f"Caching {len(self.image_paths)} images in RAM...")
             self.cached_images = []
             for p in tqdm(self.image_paths):
                 img = self.load_image_file(p)

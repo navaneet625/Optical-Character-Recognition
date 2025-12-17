@@ -12,7 +12,7 @@ class MambaEncoder(nn.Module):
         self.config = full_mamba.config
 
         if n_layers < self.config.num_hidden_layers:
-            print(f"Truncating Mamba from {self.config.num_hidden_layers} → {n_layers} layers")
+            print(f"Truncating Mamba {self.config.num_hidden_layers} -> {n_layers} layers")
             full_mamba.layers = full_mamba.layers[:n_layers]
             self.config.num_hidden_layers = n_layers
 
@@ -25,7 +25,7 @@ class MambaEncoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         if use_lora:
-            print("Applying LoRA adapters to Mamba...")
+            print("Applying LoRA...")
 
             peft_config = LoraConfig(
                 r=lora_rank,

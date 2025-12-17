@@ -4,9 +4,6 @@ import torch.nn as nn
 import jiwer
 import numpy as np
 
-# -------------------------------------------------------------------
-# Helper: Decode Targets for Validation
-# -------------------------------------------------------------------
 def decode_targets(targets, target_lengths, vocab):
     text_batch = []
     idx = 0
@@ -20,11 +17,8 @@ def decode_targets(targets, target_lengths, vocab):
         idx += length
     return text_batch
 
-# -------------------------------------------------------------------
-# Helper: Freeze Strategy (PEFT - Only Train Adapters/LoRA)
-# -------------------------------------------------------------------
 def apply_freeze_strategy(model, cfg):
-    print("--- Applying Freeze Strategy ---")
+    print("Applying Freeze Strategy...")
     
     if isinstance(model, nn.DataParallel):
         cnn = model.module.cnn

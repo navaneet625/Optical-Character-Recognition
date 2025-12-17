@@ -1,107 +1,49 @@
-DEEP ANALYSIS OF MAMBAOCR PROJECT
-===================================
+PROJECT ANALYSIS: MAMBAOCR
 
 1. PROJECT OVERVIEW
--------------------
-This project implements a state-of-the-art Optical Character Recognition (OCR) system.
-It combines a Convolutional Neural Network (ResNet34) for visual feature extraction
-with a Mamba (State Space Model) encoder for sequence modeling, and uses Connectionist
-Temporal Classification (CTC) for decoding.
+This project implements an OCR system using ResNet34 (CNN), Mamba (RNN-alternative), and CTC.
+It uses LoRA for efficient fine-tuning.
 
-It is designed to be efficient, using Low-Rank Adaptation (LoRA) to fine-tune the
-vision backbone with minimal trainable parameters.
+2. FILES
+- train.py: Training script.
+- infer.py: Inference script.
+- eval.py: Evaluation metrics (CER/WER).
+- utils.py: Helpers for metrics and decoding.
+- clean_data.py: Cleanup utility.
+- gen_data.py: Generates synthetic training data.
+- requirements.txt: Dependencies.
+- README.md: Documentation.
 
-2. DIRECTORY STRUCTURE & KEY FILES
-----------------------------------
-Root: /Users/navneetsingh/Documents/python/ocr_project/
+Configs:
+- configs/config.py: Hyperparameters and paths.
 
-[Files]
-- train.py:            Main script to train the model. Freezes backbone parts, enables LoRA, handles amp (mixed precision).
-- infer.py:            Script to run inference on images using a trained checkpoint.
-- eval.py:             Script to evaluate the model performance (CER/WER).
-- utils.py:            Contains helper functions for metrics, decoding, and the *Freeze Strategy*.
-- clean_data.py:       Utility to remove generated data (images/labels), checkpoints, and cache files.
-- create_dummy_data.py: Generates synthetic text images for testing/training. Uses system fonts and PIL.
-- visualize_error.py:   Helper to visualize error cases.
-- requirements.txt:    List of Python dependencies (torch, torchvision, opencv, mamba-ssm, etc.).
-- README.md:           General project documentation.
+Models:
+- models/ocr_model.py: Main model.
+- models/cnn_backbone.py: ResNet34 with adapters.
+- models/mamba_encoder.py: Mamba sequence encoder.
 
-[Directories]
-- configs/:            Contains configuration files.
-  - config.py:         Central place for all hyperparameters and paths.
-- models/:             Contains model architecture definitions.
-  - ocr_model.py:      The main model class (MambaOCR) assembling CNN and Mamba.
-  - cnn_backbone.py:   ResNet34 backbone wrapper with Adapter support.
-  - mamba_encoder.py:  Mamba encoder block definition.
-- data/:               Stores dataset and dataloaders.
-  - images/:           (Generated) Directory for synthetic images.
-  - labels.txt:        (Generated) Labels for the dataset.
-
-3. CORE CONFIGURATION (configs/config.py)
------------------------------------------
-The `Config` class controls the project behavior. Key defaults:
-- Inputs:
-  - img_height: 32 px
-  - img_width: 320 px
-  - vocab: "0123...xyzABC..." (Alphanumeric)
-- Model:
-  - cnn_out: 512 channels
-  - adapter_dim: 64 (Rank for LoRA/Adapters)
-  - mamba_pretrained: "state-spaces/mamba-130m-hf"
-  - use_lora: True
-- Training:
-  - batch_size: 16
-  - epochs: 5
-  - learning_rate: 1e-4
-  - mixed_precision: True (FP16)
-  - device: "cuda" (if available)
+3. CONFIGURATION (configs/config.py)
+Defaults:
+- Input: 32x320 images.
+- Model: ResNet34 (512ch) + Mamba (6 layers).
+- Training: Batch 256, FP16 enabled.
 
 4. DATA PIPELINE
-----------------
-A. Generation (`create_dummy_data.py`):
-   - Creates synthetic images using PIL.
-   - Randomizes: Background color, Text content (3-10 chars), Font (system fonts), 
-     Rotation (-5 to +5 deg), Blur (Gaussian), and Noise.
-   - Saves images to `data/images/` and labels to `data/labels.txt`.
+- Generation: random fonts, rotation, noise.
+- Cleanup: removes generated data.
 
-B. Cleanup (`clean_data.py`):
-   - Removes `data/images`, `data/labels`, `checkpoints`, `__pycache__` and `.pyc` files.
-   - Useful for resetting the environment.
+5. ARCHITECTURE
+- Input: [Batch, 3, 32, 320]
+- CNN: ResNet34 with adapters -> [Batch, 512, 1, Width]
+- Mamba: Models sequence context.
+- Classifier: Maps to characters.
 
-5. MODEL ARCHITECTURE FLOW
---------------------------
-1. Input Image: [Batch, 3, 32, 320]
-2. Feature Extraction (CNN):
-   - Uses ResNet34 (pretrained on ImageNet).
-   - Injects Adapters into ResNet blocks (layer1-layer4).
-   - Custom Freeze Strategy (utils.py):
-     - Most backbone weights are FROZEN.
-     - Unfrozen: Adapters, `layer4`, `last_conv`, and `backbone.7` (part of sequential wrap).
-   - Output: [Batch, 512, 1, Width'] (Height downsampled to 1, Width preserved).
-3. Sequence Formatting:
-   - Squeeze & Permute -> [Batch, Width', 512].
-4. Sequence Modeling (Mamba):
-   - Models dependencies in the sequence using Mamba blocks.
-   - Tuned via LoRA.
-5. Classifier:
-   - Linear layer maps 512 -> Vocab Size.
-6. Output: Logits [Batch, Width', Vocab].
+6. METRICS
+- CER: Character Error Rate.
+- WER: Word Error Rate.
 
-6. DECODING & METRICS (utils.py)
---------------------------------
-- CTCDecoder:
-  - decode_greedy: Takes argmax at each step. Fast.
-  - decode_beam_search: Explores multiple paths (beam_width=10). More accurate but slower.
-  - Handles CTC blank token (idx 0) and repeated characters.
-- Metrics:
-  - Character Error Rate (CER): % of incorrect characters.
-  - Word Error Rate (WER): % of incorrect words.
-  - Uses `jiwer` library.
-
-7. HOW TO USE
--------------
-1. Install: `pip install -r requirements.txt` (requires GPU for mamba-ssm).
-2. Generate Data (Optional): `python create_dummy_data.py`
-3. Configure: Check `configs/config.py` for paths.
-4. Train: `python train.py` (Savings best model to `checkpoints/best_mamba_ocr.pth`).
-5. Inference: `python infer.py` (Runs on test images).
+7. USAGE
+1. Install requirements.
+2. Generate data (optional).
+3. Train (python train.py).
+4. Infer (python infer.py).

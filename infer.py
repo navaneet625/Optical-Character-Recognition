@@ -12,7 +12,7 @@ class OCRPredictor:
     def __init__(self, checkpoint_path=None):
         self.cfg = Config()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"--- Initializing LPR Engine on {self.device} ---")
+        print(f"Initializing on {self.device}...")
 
         # 1. Initialize Model
         self.model = MambaOCR(
@@ -23,7 +23,7 @@ class OCRPredictor:
             lora_rank=self.cfg.lora_rank
         ).to(self.device)
 
-        # 2. Load Weights (Auto-detection Priority)
+        # Load Weights
         if checkpoint_path is None:
             # Check for the output of Stage 3 (Final Polish)
             options = [

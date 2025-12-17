@@ -396,7 +396,7 @@ def save_dataset(n_samples: int):
     with open(LABELS_TXT, "w") as f:
         f.write("\n".join(txt_lines))
         
-    print(f"✅ Dataset Ready at {OUT_DIR}")
+    print(f"Dataset Ready at {OUT_DIR}")
 
 if __name__ == "__main__":
     save_dataset(100)

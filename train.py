@@ -10,9 +10,6 @@ from models.ocr_model import MambaOCR
 from data.dataset import OCRDataset 
 from utils import CTCDecoder, AverageMeter, save_checkpoint, decode_targets, apply_freeze_strategy, compute_metrics
 
-# -------------------------------------------------------------------
-# Collate Function
-# -------------------------------------------------------------------
 def collate_fn(batch):
     images, targets, target_lens = zip(*batch)
 
@@ -35,9 +32,6 @@ def collate_fn(batch):
     return images, targets, target_lens
 
 
-# -------------------------------------------------------------------
-# Validation Loop
-# -------------------------------------------------------------------
 def validate(model, loader, decoder, device, cfg):
     model.eval()
     preds_list = []
@@ -63,40 +57,35 @@ def validate(model, loader, decoder, device, cfg):
     return compute_metrics(preds_list, targets_list)
 
 
-# -------------------------------------------------------------------
-# Train Loop
-# -------------------------------------------------------------------
 def train(cfg=None):
     if cfg is None:
         cfg = Config()
     
-    print(f"--- Starting FRESH Training on {cfg.device} ---")
+    print(f"Starting training on {cfg.device}...")
     
-    # 1. Data Loading
-    # The dataset class handles reading CSVs based on Config paths
+    # Data Loading
     full_ds = OCRDataset(cfg, is_train=True)
     
-    # 90/10 Train-Val Split
+    # 90/10 Split
     train_size = int(0.9 * len(full_ds))
     val_size = len(full_ds) - train_size
     train_ds, val_ds = random_split(full_ds, [train_size, val_size])
     
-    print(f"Dataset Split: {len(train_ds)} Train, {len(val_ds)} Validation")
+    print(f"Split: {len(train_ds)} Train, {len(val_ds)} Val")
     
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, 
                               collate_fn=collate_fn, num_workers=cfg.num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False, 
                             collate_fn=collate_fn, num_workers=cfg.num_workers, pin_memory=True)
 
-    # 2. Model Initialization
-    # This automatically downloads ResNet (ImageNet) and Mamba (HF) base weights
+    # Model
     model = MambaOCR(vocab_size=len(cfg.vocab)+1, 
                      cnn_out=cfg.cnn_out, 
                      n_layers=cfg.mamba_layers, 
                      adapter_dim=cfg.adapter_dim,
                      lora_rank=cfg.lora_rank).to(cfg.device)
 
-    # 3. Freeze Strategy (LoRA/Adapter Training)
+    # Freeze Strategy
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
         

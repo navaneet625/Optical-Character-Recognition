@@ -3,9 +3,7 @@ import os
 
 class Config:
     def __init__(self):
-        # ====================================================
-        # 1. DATA PATHS (For your current Kaggle data)
-        # ====================================================
+        # Data Paths
         # self.data_dir = "/kaggle/working/data"
         # self.images_dir = os.path.join(self.data_dir, "images")
         # self.labels_file = os.path.join(self.data_dir, "labels.txt")
@@ -24,9 +22,7 @@ class Config:
         self.best_model_path = os.path.join(self.checkpoint_dir, "best_mamba_ocr.pth")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        # ====================================================
-        # 2. MODEL & VOCAB
-        # ====================================================
+        # Model & Vocab
         # STRICT VOCAB: 0-9 + A-Z (36 Char)
         self.vocab = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.blank_idx = 0 
@@ -47,9 +43,9 @@ class Config:
         self.lora_rank = 64
         self.mamba_dropout = 0.1
 
-        # ====================================================
-        # 3. TRAINING HYPERPARAMETERS
-        # ====================================================
+        self.mamba_dropout = 0.1
+
+        # Training Hyperparameters
         self.batch_size = 256 
         self.epochs = 1 
         self.learning_rate = 3e-4   
